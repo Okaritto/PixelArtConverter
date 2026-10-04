@@ -1,0 +1,103 @@
+name: Build and release
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build .NET 8
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore PixelArtConverter.csproj
+
+      - name: Build Release
+        run: dotnet build PixelArtConverter.csproj -c Release --no-restore
+
+  release:
+    name: Publish Windows x64 release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate version tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+(\.[0-9]+)?$') {
+            throw "Use a version tag such as v1.4 or v1.4.0."
+          }
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish self-contained application
+        run: |
+          dotnet publish PixelArtConverter.csproj -c Release -r win-x64 --self-contained true -o dist/win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item dist/win-x64/*.pdb -ErrorAction SilentlyContinue
+
+      - name: Package ZIP and write release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $zipName = "PixelArtConverter-$env:RELEASE_TAG-win-x64.zip"
+          Compress-Archive -Path dist/win-x64 -DestinationPath $zipName
+          @"
+          Windows 64ビット向けの自己完結版です。.NETの追加インストールは不要です。
+
+          ## 起動方法
+          1. Assetsの $zipName をダウンロードします。
+          2. ZIPをすべて解凍します。
+          3. win-x64 フォルダー内の PixelArtConverter.exe を起動します。
+
+          DLLとサブフォルダーはそのまま保持してください。
+          操作マニュアルはリポジトリの docs フォルダーにあります。
+          "@ | Set-Content release-notes.md -Encoding utf8
+
+      - name: Create release and upload ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # Existing releases are not overwritten. Run only for a new version tag.
+          $zipName = "PixelArtConverter-$env:RELEASE_TAG-win-x64.zip"
+          gh release create "$env:RELEASE_TAG" "$zipName" --verify-tag --title "PixelArtConverter $env:RELEASE_TAG" --notes-file release-notes.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
