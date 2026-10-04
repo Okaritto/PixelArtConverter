@@ -17,14 +17,31 @@
 
 ## 起動
 
-Windows 11、.NET 8 SDK、Visual Studioの「.NET デスクトップ開発」を使用します。
+### 配布ZIPから起動する
+
+Windows 64ビット（x64）向けの自己完結版を配布しています。Visual Studioや.NETの追加インストールは不要です。
+
+1. [Releases](https://github.com/Okaritto/PixelArtConverter/releases)を開きます。
+2. **Assets**の `PixelArtConverter-v1.3-win-x64.zip` をダウンロードします。
+3. ZIPを右クリックして「すべて展開」を選び、すべてのファイルを解凍します。
+4. 解凍した `win-x64` フォルダー内の `PixelArtConverter.exe` を起動します。
+5. 「画像を開く」で変換したい画像を選びます。
+
+`PixelArtConverter.exe`だけを取り出さず、DLLやサブフォルダーを含む構成をそのまま保持してください。
+**Source code (zip)** や **Code → Download ZIP** はソースコードです。実行用ZIPは上記のAssetsから取得してください。
+
+配布ZIPにはマニュアルとサンプルは含まれていません。[操作マニュアル PDF](docs/PixelArtConverter_Manual.pdf)と[サンプル画像](samples/sample_input.png)は、このリポジトリから取得できます。
+
+### ソースから起動する
+
+Windows 11と.NET 8 SDKを使用します。Visual Studioで起動する場合は「.NET デスクトップ開発」を導入してください。
 
 1. このリポジトリをクローン、または **Code → Download ZIP** でダウンロードして展開します。
 2. `PixelArtConverter.csproj`をVisual Studioで開きます。
 3. **F5**で起動します。
 4. 「画像を開く」で`samples/sample_input.png`などを選びます。
 
-PowerShellではプロジェクトのフォルダーで実行します。
+.NET 8 SDKがあれば、Visual Studioを使わずPowerShellから起動することもできます。`PixelArtConverter.csproj`があるフォルダーで実行します。
 
 ```powershell
 dotnet run
